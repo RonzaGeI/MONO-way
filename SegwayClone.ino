@@ -134,6 +134,11 @@ void getPD()
 	Df = KD;                      // use static value
 	Pf_off = KP_OFF;              // use static value
 	Df_off = KD_OFF;              // use static value
+// andrea 2014 aggiunto 4 righe sotto
+	int Pv = analogRead(P_PIN);   // read P potentiometer
+    Pf = (KP * Pv/1023);  // range 0 to 0.8
+    int Dv = analogRead(D_PIN);   // read D potentiometer
+    Df = (KD * Dv/1023);  // range 0 to 0.5
 #endif
 }
 
@@ -152,6 +157,9 @@ boolean riderIsOn(void)
 
 	return (true);
 #endif
+    
+    
+    
 }
 
 float complementaryFilter(float accel, float gyro, long micros, float filtered_accel, float angle)
@@ -162,13 +170,6 @@ float complementaryFilter(float accel, float gyro, long micros, float filtered_a
 	return angle;
 }
 
-float complementaryFilterSlow(float accel, float gyro, long micros, float filtered_accel, float angle)
-{
-	angle = ALPHA_SLOW * (angle + (gyro * micros/1000000.0));
-	angle += (1-ALPHA_SLOW) * filtered_accel;
-	
-	return angle;
-}
 float getBoardPitchAngle(float accel, float gyro, long micros)
 {
 	static float filtered_accel = 0;
@@ -179,17 +180,15 @@ float getBoardPitchAngle(float accel, float gyro, long micros)
 	return angle;
 }
 
-#if defined(SUBTRACT_BANK_ANGLE) && defined(MPU6050_X2_STEERING)
+
 float getBoardBankAngle(float accel, float gyro, long micros)
 {
 	static float filtered_accel = 0;
 	static float angle = 0;
 	filtered_accel = lowpassFilter(filtered_accel, accel, ACC_FILTER);
-//	angle = complementaryFilter(accel, SUBTRACT_BANK_ANGLE*gyro, micros, filtered_accel, angle);
-	angle = complementaryFilterSlow(accel, 0, micros, filtered_accel, angle);
-	return SUBTRACT_BANK_ANGLE*angle;
+	angle = complementaryFilter(accel, gyro, micros, filtered_accel, angle);
+	return angle;
 }
-#endif
 
 float computePID(float angle, float gyro, boolean riderOn)
 {
@@ -315,7 +314,8 @@ void setup()
 	initHX711();		// initialize weight (rider) sensor
 #endif
 
-	getPD();			// get P and D values
+	// Andrea 09/12/2015 spostato nel loop
+//	getPD();			// get P and D values
 	
 	waitForLevel = true;	// set flag to wait for board to level
 #ifdef MODE_CALIBRATE
@@ -334,6 +334,9 @@ void loop()
 	long motorMax;
 	float steer_gyro;
 	boolean riderOn;
+
+	// Andrea 09/12/2015 era nel setup	
+	getPD();
 	
 	currMicros = micros();
 
@@ -429,7 +432,8 @@ void loop()
 				board_bank_accel = getBoardBankAccel();	// get board bank accelerometer value
 				board_bank_gyro = getBoardBankGyro();	// get board bank gyro value
 				board_bank_angle = getBoardBankAngle(board_bank_accel, board_bank_gyro, dt);	// compute board bank angle
-				steer_angle = steer_angle - board_bank_angle;
+// Andrea
+                steer_angle = steer_angle - board_bank_angle;
 #endif				
 			}
 #ifdef EXPONENTIAL_STEER_DIVIDER
